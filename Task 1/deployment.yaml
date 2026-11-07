@@ -1,0 +1,57 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+    spec:
+      shareProcessNamespace: true
+
+      initContainers:
+        - name: init-done
+          image: busybox
+          command: ["sh", "-c", "echo done"]
+
+      containers:
+        - name: nginx
+          image: nginx:1.27
+          ports:
+            - containerPort: 80
+          command:
+            - sh
+            - -c
+            - |
+              echo "hello in MLOPS MENA COMMUNITY : $(date '+%Y-%m-%d %H:%M:%S')" > /usr/share/nginx/html/index.html
+              exec nginx -g 'daemon off;'
+
+        - name: time-updater
+          image: busybox
+          command:
+            - sh
+            - -c
+            - |
+              echo "Time updater sidecar started"
+
+              while true; do
+                pid=$(pgrep nginx | head -1)
+
+                if [ -n "$pid" ]; then
+                  timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+                  echo "hello in MLOPS MENA COMMUNITY : $timestamp" > /proc/$pid/root/usr/share/nginx/html/index.html
+
+                  echo "Successfully updated timestamp: $timestamp"
+                else
+                  echo "Waiting for Nginx process..."
+                fi
+
+                sleep 5
+              done
